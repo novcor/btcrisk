@@ -105,3 +105,26 @@ button:hover {
   margin-top: 40px;
   text-align: center;
 }
+#progressContainer {
+  max-width: 600px;
+  margin: 20px auto;
+  text-align: center;
+  color: #8b949e;
+}
+
+#progressBarWrapper {
+  width: 100%;
+  background-color: #21262d;
+  height: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 5px;
+}
+
+#progressBarFill {
+  height: 100%;
+  width: 0%;
+  background-color: #58a6ff;
+  transition: width 0.15s ease-in-out;
+  border-radius: 8px 0 0 8px;
+}

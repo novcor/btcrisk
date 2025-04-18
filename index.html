@@ -29,3 +29,23 @@
   <h3>Grouped Summary</h3>
   <div id="riskGroups"></div>
 </div>
+<!-- Report Download Panel -->
+<div id="reportPanel" style="margin-top: 30px;">
+  <h2>Download Custom Report</h2>
+
+  <div>
+    <label><input type="checkbox" id="filterHighOnly" /> Include only High & Critical risk</label><br>
+    <label><input type="checkbox" id="filterVulnerableOnly" /> Include only Vulnerability Risk ≥ High</label>
+  </div>
+
+  <div style="margin-top: 10px;">
+    <label for="reportFormat">File Format:</label>
+    <select id="reportFormat">
+      <option value="json">JSON</option>
+      <option value="csv">CSV</option>
+      <option value="txt">TXT</option>
+    </select>
+  </div>
+
+  <button onclick="downloadFilteredReport()" style="margin-top: 15px;">Download Report</button>
+</div>

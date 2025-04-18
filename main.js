@@ -270,4 +270,68 @@ async function analyzeVulnerabilityRisk(address) {
   else if (score >= 9) level = "Critical";
 
   return { level, reasons };
+async function checkNonceReuse(address) {
+  try {
+    const response = await fetch(`https://blockstream.info/api/address/${address}/txs`);
+    const txs = await response.json();
+    const rSet = new Set();
+    const seenR = new Map();
+    let reused = false;
+    let details = [];
+
+    const txids = txs.slice(0, 10).map(tx => tx.txid);
+
+    for (const txid of txids) {
+      const txRes = await fetch(`https://blockstream.info/api/tx/${txid}`);
+      const txData = await txRes.json();
+
+      for (const vin of txData.vin || []) {
+        if (vin.scriptsig_asm && vin.scriptsig_asm.includes("3045") || vin.scriptsig_asm.includes("3044")) {
+          const hexParts = vin.scriptsig_asm.split(" ")[0]; // DER sig
+          const r = extractRfromDER(hexParts);
+          if (r) {
+            if (rSet.has(r)) {
+              reused = true;
+              details.push(`R value reused in txid: ${txid}`);
+            } else {
+              rSet.add(r);
+              seenR.set(r, txid);
+            }
+          }
+        }
+      }
+    }
+
+    if (reused) {
+      return {
+        level: "Critical",
+        reasons: ["Signature R-value reused — cryptographic nonce vulnerability detected.", ...details]
+      };
+    }
+
+    return { level: "Low", reasons: [] };
+
+  } catch (err) {
+    console.error(`Nonce scan failed for ${address}`, err);
+    return {
+      level: "Unknown",
+      reasons: ["Unable to fetch transactions for nonce check."]
+    };
+  }
+}
+
+function extractRfromDER(derHex) {
+  try {
+    // Remove 0x30 prefix and length bytes
+    let i = 4;
+    if (derHex.startsWith("30")) {
+      i = 6;
+    }
+    let rLen = parseInt(derHex.substr(6, 2), 16);
+    let r = derHex.substr(8, rLen * 2);
+    return r;
+  } catch (e) {
+    return null;
+  }
+}
 }

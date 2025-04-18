@@ -1,3 +1,6 @@
+let reportData = []; // Holds all scanned results for export
+
+// === SINGLE ADDRESS SCAN ===
 async function assessRisk() {
   const address = document.getElementById("btcAddress").value.trim();
   const results = document.getElementById("results");
@@ -48,6 +51,114 @@ async function assessRisk() {
   results.classList.remove("hidden");
 }
 
+// === BULK FILE UPLOAD AND SCAN ===
+async function processUploadedFile() {
+  const fileInput = document.getElementById("addressFile");
+  const file = fileInput.files[0];
+  if (!file) {
+    alert("Please select a file.");
+    return;
+  }
+
+  const content = await file.text();
+  const lines = content.split(/\r?\n/).map(line => line.trim()).filter(line => line);
+
+  reportData = []; // clear previous
+  const grouped = { Low: [], Moderate: [], High: [], Critical: [] };
+  const resultsContainer = document.getElementById("bulkDetails");
+  resultsContainer.innerHTML = "";
+
+  for (const address of lines) {
+    const usage = await analyzeUsageRisk(address);
+    const vuln = await analyzeVulnerabilityRisk(address);
+
+    reportData.push({
+      address,
+      usageRisk: usage.level,
+      vulnRisk: vuln.level,
+      usageReasons: usage.reasons,
+      vulnReasons: vuln.reasons
+    });
+
+    const div = document.createElement("div");
+    div.classList.add("address-card");
+    div.innerHTML = `
+      <strong>Address:</strong> ${address}<br>
+      <span class="risk-label ${getRiskClass(usage.level)}">Usage Risk: ${usage.level}</span><br>
+      <span class="risk-label ${getRiskClass(vuln.level)}">Vulnerability Risk: ${vuln.level}</span><br>
+      <em>${(usage.level === "High" || usage.level === "Critical") ? "Avoid sending funds." : ""}</em><br>
+      <em>${(vuln.level === "High" || vuln.level === "Critical") ? "Treat as potentially compromised." : ""}</em>
+      <hr>
+    `;
+    resultsContainer.appendChild(div);
+
+    grouped[usage.level]?.push(address);
+    grouped[vuln.level]?.push(address);
+  }
+
+  document.getElementById("bulkResults").classList.remove("hidden");
+  displayRiskGroups(grouped);
+}
+
+function getRiskClass(level) {
+  if (level === "Low") return "risk-low";
+  if (level === "Moderate") return "risk-moderate";
+  return "risk-high";
+}
+
+function displayRiskGroups(grouped) {
+  const container = document.getElementById("riskGroups");
+  container.innerHTML = "";
+
+  for (const level of ["Critical", "High", "Moderate", "Low"]) {
+    if (grouped[level].length > 0) {
+      const groupDiv = document.createElement("div");
+      groupDiv.innerHTML = `<strong>${level} Risk:</strong><br>${grouped[level].join("<br>")}<br><br>`;
+      container.appendChild(groupDiv);
+    }
+  }
+}
+
+// === REPORT DOWNLOAD ENGINE ===
+function downloadFilteredReport() {
+  const highOnly = document.getElementById("filterHighOnly").checked;
+  const vulnOnly = document.getElementById("filterVulnerableOnly").checked;
+  const format = document.getElementById("reportFormat").value;
+
+  const filtered = reportData.filter(entry => {
+    const usageRiskOK = !highOnly || ["High", "Critical"].includes(entry.usageRisk);
+    const vulnRiskOK = !vulnOnly || ["High", "Critical"].includes(entry.vulnRisk);
+    return usageRiskOK && vulnRiskOK;
+  });
+
+  let content = "";
+  let filename = `riskbtc_report_${Date.now()}`;
+
+  if (format === "json") {
+    content = JSON.stringify(filtered, null, 2);
+    filename += ".json";
+  } else if (format === "csv") {
+    const headers = ["Address", "Usage Risk", "Vulnerability Risk"];
+    const rows = filtered.map(e => [e.address, e.usageRisk, e.vulnRisk].join(","));
+    content = [headers.join(","), ...rows].join("\n");
+    filename += ".csv";
+  } else if (format === "txt") {
+    content = filtered.map(e =>
+      `Address: ${e.address}\nUsage Risk: ${e.usageRisk}\nVulnerability Risk: ${e.vulnRisk}\n`
+    ).join("\n");
+    filename += ".txt";
+  }
+
+  const blob = new Blob([content], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+// === RISK ANALYSIS FUNCTIONS ===
 function applyRiskColor(element, level) {
   element.classList.remove("risk-low", "risk-moderate", "risk-high");
   if (level === "Low") element.classList.add("risk-low");
@@ -55,7 +166,6 @@ function applyRiskColor(element, level) {
   else element.classList.add("risk-high");
 }
 
-// === Usage Risk Analysis ===
 async function analyzeUsageRisk(address) {
   let score = 0;
   let reasons = [];
@@ -93,7 +203,6 @@ async function analyzeUsageRisk(address) {
   return { level, reasons };
 }
 
-// === Vulnerability Risk Analysis ===
 async function analyzeVulnerabilityRisk(address) {
   let score = 0;
   let reasons = [];
@@ -122,7 +231,7 @@ async function analyzeVulnerabilityRisk(address) {
     reasons.push("Contains readable English words – possible brainwallet or vanity phrase.");
   }
 
-  const knownCompromised = false; // future dataset integration
+  const knownCompromised = false; // Future dataset support
   if (knownCompromised) {
     score += 10;
     reasons.push("Address matches known leaked private key.");
@@ -135,108 +244,3 @@ async function analyzeVulnerabilityRisk(address) {
 
   return { level, reasons };
 }
-async function processUploadedFile() {
-  const fileInput = document.getElementById("addressFile");
-  const file = fileInput.files[0];
-  if (!file) {
-    alert("Please select a file.");
-    return;
-  }
-
-  const content = await file.text();
-  const lines = content.split(/\r?\n/).map(line => line.trim()).filter(line => line);
-
-  const grouped = {
-    Low: [],
-    Moderate: [],
-    High: [],
-    Critical: []
-  };
-
-  const resultsContainer = document.getElementById("bulkDetails");
-  resultsContainer.innerHTML = "";
-
-  for (const address of lines) {
-    const usage = await analyzeUsageRisk(address);
-    const vuln = await analyzeVulnerabilityRisk(address);
-
-    const div = document.createElement("div");
-    div.classList.add("address-card");
-    div.innerHTML = `
-      <strong>Address:</strong> ${address}<br>
-      <span class="risk-label ${getRiskClass(usage.level)}">Usage Risk: ${usage.level}</span><br>
-      <span class="risk-label ${getRiskClass(vuln.level)}">Vulnerability Risk: ${vuln.level}</span><br>
-      <em>${(usage.level === "High" || usage.level === "Critical") ? "Avoid sending funds." : ""}</em><br>
-      <em>${(vuln.level === "High" || vuln.level === "Critical") ? "Treat as potentially compromised." : ""}</em>
-      <hr>
-    `;
-
-    resultsContainer.appendChild(div);
-
-    grouped[usage.level]?.push(address);
-    grouped[vuln.level]?.push(address);
-  }
-
-  document.getElementById("bulkResults").classList.remove("hidden");
-  displayRiskGroups(grouped);
-}
-
-function getRiskClass(level) {
-  if (level === "Low") return "risk-low";
-  if (level === "Moderate") return "risk-moderate";
-  return "risk-high";
-}
-
-function displayRiskGroups(grouped) {
-  const container = document.getElementById("riskGroups");
-  container.innerHTML = "";
-
-  for (const level of ["Critical", "High", "Moderate", "Low"]) {
-    if (grouped[level].length > 0) {
-      const groupDiv = document.createElement("div");
-      groupDiv.innerHTML = `<strong>${level} Risk:</strong><br>${grouped[level].join("<br>")}<br><br>`;
-      container.appendChild(groupDiv);
-    }
-  }
-}
-function downloadFilteredReport() {
-  const highOnly = document.getElementById("filterHighOnly").checked;
-  const vulnOnly = document.getElementById("filterVulnerableOnly").checked;
-  const format = document.getElementById("reportFormat").value;
-
-  const filtered = reportData.filter(entry => {
-    const usageLevel = entry.usageRisk;
-    const vulnLevel = entry.vulnRisk;
-    const usageRiskOK = !highOnly || ["High", "Critical"].includes(usageLevel);
-    const vulnRiskOK = !vulnOnly || ["High", "Critical"].includes(vulnLevel);
-    return usageRiskOK && vulnRiskOK;
-  });
-
-  let content = "";
-  let filename = `riskbtc_report_${Date.now()}`;
-
-  if (format === "json") {
-    content = JSON.stringify(filtered, null, 2);
-    filename += ".json";
-  } else if (format === "csv") {
-    const headers = ["Address", "Usage Risk", "Vulnerability Risk"];
-    const rows = filtered.map(entry =>
-      [entry.address, entry.usageRisk, entry.vulnRisk].join(",")
-    );
-    content = [headers.join(","), ...rows].join("\n");
-    filename += ".csv";
-  } else if (format === "txt") {
-    content = filtered.map(entry =>
-      `Address: ${entry.address}\nUsage Risk: ${entry.usageRisk}\nVulnerability Risk: ${entry.vulnRisk}\n\n`
-    ).join("");
-    filename += ".txt";
-  }
-
-  const blob = new Blob([content], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-  }

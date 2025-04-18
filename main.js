@@ -199,3 +199,44 @@ function displayRiskGroups(grouped) {
     }
   }
 }
+function downloadFilteredReport() {
+  const highOnly = document.getElementById("filterHighOnly").checked;
+  const vulnOnly = document.getElementById("filterVulnerableOnly").checked;
+  const format = document.getElementById("reportFormat").value;
+
+  const filtered = reportData.filter(entry => {
+    const usageLevel = entry.usageRisk;
+    const vulnLevel = entry.vulnRisk;
+    const usageRiskOK = !highOnly || ["High", "Critical"].includes(usageLevel);
+    const vulnRiskOK = !vulnOnly || ["High", "Critical"].includes(vulnLevel);
+    return usageRiskOK && vulnRiskOK;
+  });
+
+  let content = "";
+  let filename = `riskbtc_report_${Date.now()}`;
+
+  if (format === "json") {
+    content = JSON.stringify(filtered, null, 2);
+    filename += ".json";
+  } else if (format === "csv") {
+    const headers = ["Address", "Usage Risk", "Vulnerability Risk"];
+    const rows = filtered.map(entry =>
+      [entry.address, entry.usageRisk, entry.vulnRisk].join(",")
+    );
+    content = [headers.join(","), ...rows].join("\n");
+    filename += ".csv";
+  } else if (format === "txt") {
+    content = filtered.map(entry =>
+      `Address: ${entry.address}\nUsage Risk: ${entry.usageRisk}\nVulnerability Risk: ${entry.vulnRisk}\n\n`
+    ).join("");
+    filename += ".txt";
+  }
+
+  const blob = new Blob([content], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+  }

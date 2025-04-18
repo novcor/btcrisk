@@ -1,4 +1,4 @@
-let reportData = []; // Holds all scanned results for export
+ let reportData = []; // Holds all scanned results for export
 
 // === SINGLE ADDRESS SCAN ===
 async function assessRisk() {
@@ -74,31 +74,45 @@ async function processUploadedFile() {
 
   for (let i = 0; i < lines.length; i++) {
     const address = lines[i];
-    const usage = await analyzeUsageRisk(address);
-    const vuln = await analyzeVulnerabilityRisk(address);
 
-    reportData.push({
-      address,
-      usageRisk: usage.level,
-      vulnRisk: vuln.level,
-      usageReasons: usage.reasons,
-      vulnReasons: vuln.reasons
-    });
+    try {
+      const usage = await analyzeUsageRisk(address);
+      const vuln = await analyzeVulnerabilityRisk(address);
 
-    const div = document.createElement("div");
-    div.classList.add("address-card");
-    div.innerHTML = `
-      <strong>Address:</strong> ${address}<br>
-      <span class="risk-label ${getRiskClass(usage.level)}">Usage Risk: ${usage.level}</span><br>
-      <span class="risk-label ${getRiskClass(vuln.level)}">Vulnerability Risk: ${vuln.level}</span><br>
-      <em>${(usage.level === "High" || usage.level === "Critical") ? "Avoid sending funds." : ""}</em><br>
-      <em>${(vuln.level === "High" || vuln.level === "Critical") ? "Treat as potentially compromised." : ""}</em>
-      <hr>
-    `;
-    resultsContainer.appendChild(div);
+      reportData.push({
+        address,
+        usageRisk: usage.level,
+        vulnRisk: vuln.level,
+        usageReasons: usage.reasons,
+        vulnReasons: vuln.reasons
+      });
 
-    grouped[usage.level]?.push(address);
-    grouped[vuln.level]?.push(address);
+      const div = document.createElement("div");
+      div.classList.add("address-card");
+      div.innerHTML = `
+        <strong>Address:</strong> ${address}<br>
+        <span class="risk-label ${getRiskClass(usage.level)}">Usage Risk: ${usage.level}</span><br>
+        <span class="risk-label ${getRiskClass(vuln.level)}">Vulnerability Risk: ${vuln.level}</span><br>
+        <em>${(usage.level === "High" || usage.level === "Critical") ? "Avoid sending funds." : ""}</em><br>
+        <em>${(vuln.level === "High" || vuln.level === "Critical") ? "Treat as potentially compromised." : ""}</em>
+        <hr>
+      `;
+      resultsContainer.appendChild(div);
+
+      grouped[usage.level]?.push(address);
+      grouped[vuln.level]?.push(address);
+    } catch (err) {
+      console.error(`Error scanning address ${address}:`, err);
+      const errorDiv = document.createElement("div");
+      errorDiv.classList.add("address-card");
+      errorDiv.innerHTML = `
+        <strong>Address:</strong> ${address}<br>
+        <span class="risk-label risk-high">Error scanning address</span><br>
+        <em>This address may be malformed or unreachable via API.</em>
+        <hr>
+      `;
+      resultsContainer.appendChild(errorDiv);
+    }
 
     // Update progress
     const percent = Math.round(((i + 1) / total) * 100);
@@ -110,7 +124,22 @@ async function processUploadedFile() {
   document.getElementById("bulkResults").classList.remove("hidden");
   displayRiskGroups(grouped);
 }
-// === REPORT DOWNLOAD ENGINE ===
+
+// === RISK GROUP SUMMARY ===
+function displayRiskGroups(grouped) {
+  const container = document.getElementById("riskGroups");
+  container.innerHTML = "";
+
+  for (const level of ["Critical", "High", "Moderate", "Low"]) {
+    if (grouped[level].length > 0) {
+      const groupDiv = document.createElement("div");
+      groupDiv.innerHTML = `<strong>${level} Risk:</strong><br>${grouped[level].join("<br>")}<br><br>`;
+      container.appendChild(groupDiv);
+    }
+  }
+}
+
+// === EXPORT CUSTOM REPORT ===
 function downloadFilteredReport() {
   const highOnly = document.getElementById("filterHighOnly").checked;
   const vulnOnly = document.getElementById("filterVulnerableOnly").checked;
@@ -149,7 +178,13 @@ function downloadFilteredReport() {
   URL.revokeObjectURL(url);
 }
 
-// === RISK ANALYSIS FUNCTIONS ===
+// === HELPERS ===
+function getRiskClass(level) {
+  if (level === "Low") return "risk-low";
+  if (level === "Moderate") return "risk-moderate";
+  return "risk-high";
+}
+
 function applyRiskColor(element, level) {
   element.classList.remove("risk-low", "risk-moderate", "risk-high");
   if (level === "Low") element.classList.add("risk-low");
@@ -157,6 +192,7 @@ function applyRiskColor(element, level) {
   else element.classList.add("risk-high");
 }
 
+// === RISK ANALYSIS ===
 async function analyzeUsageRisk(address) {
   let score = 0;
   let reasons = [];

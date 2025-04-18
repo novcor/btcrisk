@@ -135,3 +135,67 @@ async function analyzeVulnerabilityRisk(address) {
 
   return { level, reasons };
 }
+async function processUploadedFile() {
+  const fileInput = document.getElementById("addressFile");
+  const file = fileInput.files[0];
+  if (!file) {
+    alert("Please select a file.");
+    return;
+  }
+
+  const content = await file.text();
+  const lines = content.split(/\r?\n/).map(line => line.trim()).filter(line => line);
+
+  const grouped = {
+    Low: [],
+    Moderate: [],
+    High: [],
+    Critical: []
+  };
+
+  const resultsContainer = document.getElementById("bulkDetails");
+  resultsContainer.innerHTML = "";
+
+  for (const address of lines) {
+    const usage = await analyzeUsageRisk(address);
+    const vuln = await analyzeVulnerabilityRisk(address);
+
+    const div = document.createElement("div");
+    div.classList.add("address-card");
+    div.innerHTML = `
+      <strong>Address:</strong> ${address}<br>
+      <span class="risk-label ${getRiskClass(usage.level)}">Usage Risk: ${usage.level}</span><br>
+      <span class="risk-label ${getRiskClass(vuln.level)}">Vulnerability Risk: ${vuln.level}</span><br>
+      <em>${(usage.level === "High" || usage.level === "Critical") ? "Avoid sending funds." : ""}</em><br>
+      <em>${(vuln.level === "High" || vuln.level === "Critical") ? "Treat as potentially compromised." : ""}</em>
+      <hr>
+    `;
+
+    resultsContainer.appendChild(div);
+
+    grouped[usage.level]?.push(address);
+    grouped[vuln.level]?.push(address);
+  }
+
+  document.getElementById("bulkResults").classList.remove("hidden");
+  displayRiskGroups(grouped);
+}
+
+function getRiskClass(level) {
+  if (level === "Low") return "risk-low";
+  if (level === "Moderate") return "risk-moderate";
+  return "risk-high";
+}
+
+function displayRiskGroups(grouped) {
+  const container = document.getElementById("riskGroups");
+  container.innerHTML = "";
+
+  for (const level of ["Critical", "High", "Moderate", "Low"]) {
+    if (grouped[level].length > 0) {
+      const groupDiv = document.createElement("div");
+      groupDiv.innerHTML = `<strong>${level} Risk:</strong><br>${grouped[level].join("<br>")}<br><br>`;
+      container.appendChild(groupDiv);
+    }
+  }
+}

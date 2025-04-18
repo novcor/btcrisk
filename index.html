@@ -1,58 +1,84 @@
-<div class="input-container">
-  <input type="text" id="btcAddress" placeholder="Enter a Bitcoin address..." />
-  <button onclick="assessRisk()">Assess Risk</button>
-</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RiskBTC – Bitcoin Wallet Risk Checker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
 
-<!-- NEW: Upload Address File -->
-<div class="input-container">
-  <input type="file" id="addressFile" accept=".txt,.csv" />
-  <button onclick="processUploadedFile()">Upload & Scan File</button>
-</div>
+  <h1>RiskBTC</h1>
+  <p>Paste a Bitcoin address or upload a file to assess wallet risk.</p>
 
-<div id="results" class="hidden">
-  <!-- Existing Results -->
-  <h2>Usage Risk Assessment</h2>
-  <p id="usageScore"></p>
-  <ul id="usageReasons"></ul>
-  <div id="usageRecommendations" class="recommendations"></div>
-
-  <h2>Vulnerability Risk Assessment</h2>
-  <p id="vulnScore"></p>
-  <ul id="vulnReasons"></ul>
-  <div id="vulnRecommendations" class="recommendations"></div>
-</div>
-
-<!-- NEW: Bulk Results Section -->
-<div id="bulkResults" class="hidden">
-  <h2>Bulk Address Scan Results</h2>
-  <div id="bulkDetails"></div>
-  <!-- Scan Progress -->
-<div id="progressContainer" class="hidden">
-  <p>Scanning... <span id="progressText">0%</span></p>
-  <div id="progressBarWrapper">
-    <div id="progressBarFill"></div>
-  </div>
-</div>
-  <h3>Grouped Summary</h3>
-  <div id="riskGroups"></div>
-</div>
-<!-- Report Download Panel -->
-<div id="reportPanel" style="margin-top: 30px;">
-  <h2>Download Custom Report</h2>
-
-  <div>
-    <label><input type="checkbox" id="filterHighOnly" /> Include only High & Critical risk</label><br>
-    <label><input type="checkbox" id="filterVulnerableOnly" /> Include only Vulnerability Risk ≥ High</label>
+  <!-- === SINGLE ADDRESS SCAN === -->
+  <div class="input-container">
+    <input type="text" id="btcAddress" placeholder="Enter a Bitcoin address..." />
+    <button onclick="assessRisk()">Assess Risk</button>
   </div>
 
-  <div style="margin-top: 10px;">
-    <label for="reportFormat">File Format:</label>
-    <select id="reportFormat">
-      <option value="json">JSON</option>
-      <option value="csv">CSV</option>
-      <option value="txt">TXT</option>
-    </select>
+  <div id="results" class="hidden">
+    <h2>Usage Risk Assessment</h2>
+    <p id="usageScore"></p>
+    <ul id="usageReasons"></ul>
+    <div id="usageRecommendations" class="recommendations"></div>
+
+    <h2>Vulnerability Risk Assessment</h2>
+    <p id="vulnScore"></p>
+    <ul id="vulnReasons"></ul>
+    <div id="vulnRecommendations" class="recommendations"></div>
   </div>
 
-  <button onclick="downloadFilteredReport()" style="margin-top: 15px;">Download Report</button>
-</div>
+  <hr />
+
+  <!-- === BULK ADDRESS UPLOAD === -->
+  <h2>Bulk Address Scan</h2>
+  <div class="input-container">
+    <input type="file" id="addressFile" accept=".txt,.csv" />
+    <button onclick="processUploadedFile()">Upload & Scan File</button>
+  </div>
+
+  <!-- === SCAN PROGRESS === -->
+  <div id="progressContainer" class="hidden">
+    <p>Scanning... <span id="progressText">0%</span></p>
+    <div id="progressBarWrapper">
+      <div id="progressBarFill"></div>
+    </div>
+  </div>
+
+  <!-- === BULK RESULTS === -->
+  <div id="bulkResults" class="hidden">
+    <h2>Bulk Address Scan Results</h2>
+    <div id="bulkDetails"></div>
+
+    <h3>Grouped Summary</h3>
+    <div id="riskGroups"></div>
+  </div>
+
+  <hr />
+
+  <!-- === REPORT DOWNLOAD OPTIONS === -->
+  <div id="reportPanel" style="margin-top: 30px;">
+    <h2>Download Custom Report</h2>
+
+    <div>
+      <label><input type="checkbox" id="filterHighOnly" /> Include only High & Critical risk</label><br>
+      <label><input type="checkbox" id="filterVulnerableOnly" /> Include only Vulnerability Risk ≥ High</label>
+    </div>
+
+    <div style="margin-top: 10px;">
+      <label for="reportFormat">File Format:</label>
+      <select id="reportFormat">
+        <option value="json">JSON</option>
+        <option value="csv">CSV</option>
+        <option value="txt">TXT</option>
+      </select>
+    </div>
+
+    <button onclick="downloadFilteredReport()" style="margin-top: 15px;">Download Report</button>
+  </div>
+
+  <!-- === LINK JAVASCRIPT === -->
+  <script src="main.js"></script>
+</body>
+</html>

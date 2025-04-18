@@ -1,0 +1,85 @@
+/* General Layout */
+body {
+  font-family: 'Courier New', Courier, monospace;
+  background-color: #0d1117;
+  color: #c9d1d9;
+  padding: 30px;
+  margin: 0;
+  text-align: center;
+}
+
+h1 {
+  color: #58a6ff;
+  font-size: 2.5em;
+  margin-bottom: 0.2em;
+}
+
+p {
+  color: #8b949e;
+  font-size: 1em;
+  margin-bottom: 1.5em;
+}
+
+/* Input Field and Button */
+.input-container {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+input[type="text"] {
+  padding: 12px;
+  width: 320px;
+  max-width: 90%;
+  font-size: 16px;
+  border-radius: 4px;
+  border: none;
+  background-color: #161b22;
+  color: #ffffff;
+}
+
+button {
+  padding: 12px 20px;
+  background-color: #238636;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.2s ease;
+}
+
+button:hover {
+  background-color: #2ea043;
+}
+
+/* Results Box */
+#results {
+  margin-top: 30px;
+  text-align: left;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+  background-color: #161b22;
+  padding: 20px;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+}
+
+#results h2 {
+  color: #79c0ff;
+  font-size: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+#results ul {
+  padding-left: 20px;
+  list-style-type: disc;
+}
+
+.hidden {
+  display: none;
+}

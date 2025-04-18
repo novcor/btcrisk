@@ -5,6 +5,8 @@ async function assessRisk() {
   const vulnDisplay = document.getElementById("vulnScore");
   const usageReasons = document.getElementById("usageReasons");
   const vulnReasons = document.getElementById("vulnReasons");
+  const usageRec = document.getElementById("usageRecommendations");
+  const vulnRec = document.getElementById("vulnRecommendations");
 
   if (!address) {
     alert("Please enter a Bitcoin address.");
@@ -16,6 +18,9 @@ async function assessRisk() {
 
   usageDisplay.textContent = `Usage Risk: ${usage.level}`;
   vulnDisplay.textContent = `Vulnerability Risk: ${vuln.level}`;
+
+  applyRiskColor(usageDisplay, usage.level);
+  applyRiskColor(vulnDisplay, vuln.level);
 
   usageReasons.innerHTML = "";
   vulnReasons.innerHTML = "";
@@ -32,10 +37,25 @@ async function assessRisk() {
     vulnReasons.appendChild(li);
   });
 
+  usageRec.innerHTML = (usage.level === "High" || usage.level === "Critical")
+    ? "Recommendation: Avoid sending funds to this address. Monitor activity before interacting. Consider additional wallet hygiene checks."
+    : "";
+
+  vulnRec.innerHTML = (vuln.level === "High" || vuln.level === "Critical")
+    ? "Recommendation: Treat this address as potentially compromised. Do not store significant funds here. Rotate to a freshly generated wallet using a secure tool."
+    : "";
+
   results.classList.remove("hidden");
 }
 
-// ========== USAGE RISK ==========
+function applyRiskColor(element, level) {
+  element.classList.remove("risk-low", "risk-moderate", "risk-high");
+  if (level === "Low") element.classList.add("risk-low");
+  else if (level === "Moderate") element.classList.add("risk-moderate");
+  else element.classList.add("risk-high");
+}
+
+// === Usage Risk Analysis ===
 async function analyzeUsageRisk(address) {
   let score = 0;
   let reasons = [];
@@ -46,7 +66,6 @@ async function analyzeUsageRisk(address) {
     const data = await response.json();
 
     const txCount = data.chain_stats.tx_count || 0;
-
     if (txCount < 3) {
       score += 1;
       reasons.push(`Low transaction activity (${txCount} txs) – possibly burner or attack wallet.`);
@@ -74,7 +93,7 @@ async function analyzeUsageRisk(address) {
   return { level, reasons };
 }
 
-// ========== VULNERABILITY RISK ==========
+// === Vulnerability Risk Analysis ===
 async function analyzeVulnerabilityRisk(address) {
   let score = 0;
   let reasons = [];

@@ -18,6 +18,7 @@ async function assessRisk() {
 
   const usage = await analyzeUsageRisk(address);
   const vuln = await analyzeVulnerabilityRisk(address);
+  const nonce = await checkNonceReuse(address);
 
   usageDisplay.textContent = `Usage Risk: ${usage.level}`;
   vulnDisplay.textContent = `Vulnerability Risk: ${vuln.level}`;
@@ -41,17 +42,23 @@ async function assessRisk() {
   });
 
   usageRec.innerHTML = (usage.level === "High" || usage.level === "Critical")
-    ? "Recommendation: Avoid sending funds to this address. Monitor activity before interacting. Consider additional wallet hygiene checks."
+    ? "Recommendation: Avoid sending funds to this address."
     : "";
 
   vulnRec.innerHTML = (vuln.level === "High" || vuln.level === "Critical")
-    ? "Recommendation: Treat this address as potentially compromised. Do not store significant funds here. Rotate to a freshly generated wallet using a secure tool."
+    ? "Recommendation: Treat this address as potentially compromised."
     : "";
+
+  if (nonce.level === "Critical") {
+    const div = document.createElement("div");
+    div.innerHTML = `<strong>Nonce Risk:</strong> ${nonce.level} <br><em>${nonce.reasons.join("<br>")}</em>`;
+    results.appendChild(div);
+  }
 
   results.classList.remove("hidden");
 }
 
-// === BULK FILE UPLOAD AND SCAN ===
+// === BULK SCANNER ===
 async function processUploadedFile() {
   const fileInput = document.getElementById("addressFile");
   const file = fileInput.files[0];
@@ -69,7 +76,6 @@ async function processUploadedFile() {
   const resultsContainer = document.getElementById("bulkDetails");
   resultsContainer.innerHTML = "";
 
-  // Show progress bar
   document.getElementById("progressContainer").classList.remove("hidden");
 
   for (let i = 0; i < lines.length; i++) {
@@ -78,13 +84,16 @@ async function processUploadedFile() {
     try {
       const usage = await analyzeUsageRisk(address);
       const vuln = await analyzeVulnerabilityRisk(address);
+      const nonce = await checkNonceReuse(address);
 
       reportData.push({
         address,
         usageRisk: usage.level,
         vulnRisk: vuln.level,
+        nonceRisk: nonce.level,
         usageReasons: usage.reasons,
-        vulnReasons: vuln.reasons
+        vulnReasons: vuln.reasons,
+        nonceReasons: nonce.reasons
       });
 
       const div = document.createElement("div");
@@ -93,8 +102,8 @@ async function processUploadedFile() {
         <strong>Address:</strong> ${address}<br>
         <span class="risk-label ${getRiskClass(usage.level)}">Usage Risk: ${usage.level}</span><br>
         <span class="risk-label ${getRiskClass(vuln.level)}">Vulnerability Risk: ${vuln.level}</span><br>
-        <em>${(usage.level === "High" || usage.level === "Critical") ? "Avoid sending funds." : ""}</em><br>
-        <em>${(vuln.level === "High" || vuln.level === "Critical") ? "Treat as potentially compromised." : ""}</em>
+        <span class="risk-label ${getRiskClass(nonce.level)}">Nonce Risk: ${nonce.level}</span><br>
+        ${nonce.level === "Critical" ? "<em>⚠️ R-value reused — this wallet may be compromised!</em><br>" : ""}
         <hr>
       `;
       resultsContainer.appendChild(div);
@@ -103,18 +112,8 @@ async function processUploadedFile() {
       grouped[vuln.level]?.push(address);
     } catch (err) {
       console.error(`Error scanning address ${address}:`, err);
-      const errorDiv = document.createElement("div");
-      errorDiv.classList.add("address-card");
-      errorDiv.innerHTML = `
-        <strong>Address:</strong> ${address}<br>
-        <span class="risk-label risk-high">Error scanning address</span><br>
-        <em>This address may be malformed or unreachable via API.</em>
-        <hr>
-      `;
-      resultsContainer.appendChild(errorDiv);
     }
 
-    // Update progress
     const percent = Math.round(((i + 1) / total) * 100);
     document.getElementById("progressText").innerText = `${percent}%`;
     document.getElementById("progressBarFill").style.width = `${percent}%`;
@@ -125,7 +124,6 @@ async function processUploadedFile() {
   displayRiskGroups(grouped);
 }
 
-// === RISK GROUP SUMMARY ===
 function displayRiskGroups(grouped) {
   const container = document.getElementById("riskGroups");
   container.innerHTML = "";
@@ -139,7 +137,7 @@ function displayRiskGroups(grouped) {
   }
 }
 
-// === EXPORT CUSTOM REPORT ===
+// === REPORT EXPORT ===
 function downloadFilteredReport() {
   const highOnly = document.getElementById("filterHighOnly").checked;
   const vulnOnly = document.getElementById("filterVulnerableOnly").checked;
@@ -158,13 +156,13 @@ function downloadFilteredReport() {
     content = JSON.stringify(filtered, null, 2);
     filename += ".json";
   } else if (format === "csv") {
-    const headers = ["Address", "Usage Risk", "Vulnerability Risk"];
-    const rows = filtered.map(e => [e.address, e.usageRisk, e.vulnRisk].join(","));
+    const headers = ["Address", "Usage Risk", "Vulnerability Risk", "Nonce Risk"];
+    const rows = filtered.map(e => [e.address, e.usageRisk, e.vulnRisk, e.nonceRisk].join(","));
     content = [headers.join(","), ...rows].join("\n");
     filename += ".csv";
   } else if (format === "txt") {
     content = filtered.map(e =>
-      `Address: ${e.address}\nUsage Risk: ${e.usageRisk}\nVulnerability Risk: ${e.vulnRisk}\n`
+      `Address: ${e.address}\nUsage Risk: ${e.usageRisk}\nVulnerability Risk: ${e.vulnRisk}\nNonce Risk: ${e.nonceRisk}\n`
     ).join("\n");
     filename += ".txt";
   }
@@ -192,7 +190,7 @@ function applyRiskColor(element, level) {
   else element.classList.add("risk-high");
 }
 
-// === RISK ANALYSIS ===
+// === USAGE/VULNERABILITY ANALYSIS ===
 async function analyzeUsageRisk(address) {
   let score = 0;
   let reasons = [];
@@ -258,18 +256,10 @@ async function analyzeVulnerabilityRisk(address) {
     reasons.push("Contains readable English words – possible brainwallet or vanity phrase.");
   }
 
-  const knownCompromised = false; // Future dataset support
-  if (knownCompromised) {
-    score += 10;
-    reasons.push("Address matches known leaked private key.");
-  }
+  return { level: score >= 9 ? "Critical" : score >= 6 ? "High" : score >= 3 ? "Moderate" : "Low", reasons };
+}
 
-  let level = "Low";
-  if (score >= 3 && score < 6) level = "Moderate";
-  else if (score >= 6 && score < 9) level = "High";
-  else if (score >= 9) level = "Critical";
-
-  return { level, reasons };
+// === NONCE RISK DETECTION ===
 async function checkNonceReuse(address) {
   try {
     const response = await fetch(`https://blockstream.info/api/address/${address}/txs`);
@@ -286,8 +276,8 @@ async function checkNonceReuse(address) {
       const txData = await txRes.json();
 
       for (const vin of txData.vin || []) {
-        if (vin.scriptsig_asm && vin.scriptsig_asm.includes("3045") || vin.scriptsig_asm.includes("3044")) {
-          const hexParts = vin.scriptsig_asm.split(" ")[0]; // DER sig
+        if (vin.scriptsig_asm && (vin.scriptsig_asm.includes("3045") || vin.scriptsig_asm.includes("3044"))) {
+          const hexParts = vin.scriptsig_asm.split(" ")[0];
           const r = extractRfromDER(hexParts);
           if (r) {
             if (rSet.has(r)) {
@@ -322,7 +312,6 @@ async function checkNonceReuse(address) {
 
 function extractRfromDER(derHex) {
   try {
-    // Remove 0x30 prefix and length bytes
     let i = 4;
     if (derHex.startsWith("30")) {
       i = 6;
@@ -333,5 +322,4 @@ function extractRfromDER(derHex) {
   } catch (e) {
     return null;
   }
-}
 }

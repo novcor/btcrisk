@@ -62,13 +62,18 @@ async function processUploadedFile() {
 
   const content = await file.text();
   const lines = content.split(/\r?\n/).map(line => line.trim()).filter(line => line);
+  const total = lines.length;
 
-  reportData = []; // clear previous
+  reportData = [];
   const grouped = { Low: [], Moderate: [], High: [], Critical: [] };
   const resultsContainer = document.getElementById("bulkDetails");
   resultsContainer.innerHTML = "";
 
-  for (const address of lines) {
+  // Show progress bar
+  document.getElementById("progressContainer").classList.remove("hidden");
+
+  for (let i = 0; i < lines.length; i++) {
+    const address = lines[i];
     const usage = await analyzeUsageRisk(address);
     const vuln = await analyzeVulnerabilityRisk(address);
 
@@ -94,31 +99,17 @@ async function processUploadedFile() {
 
     grouped[usage.level]?.push(address);
     grouped[vuln.level]?.push(address);
+
+    // Update progress
+    const percent = Math.round(((i + 1) / total) * 100);
+    document.getElementById("progressText").innerText = `${percent}%`;
+    document.getElementById("progressBarFill").style.width = `${percent}%`;
   }
 
+  document.getElementById("progressContainer").classList.add("hidden");
   document.getElementById("bulkResults").classList.remove("hidden");
   displayRiskGroups(grouped);
 }
-
-function getRiskClass(level) {
-  if (level === "Low") return "risk-low";
-  if (level === "Moderate") return "risk-moderate";
-  return "risk-high";
-}
-
-function displayRiskGroups(grouped) {
-  const container = document.getElementById("riskGroups");
-  container.innerHTML = "";
-
-  for (const level of ["Critical", "High", "Moderate", "Low"]) {
-    if (grouped[level].length > 0) {
-      const groupDiv = document.createElement("div");
-      groupDiv.innerHTML = `<strong>${level} Risk:</strong><br>${grouped[level].join("<br>")}<br><br>`;
-      container.appendChild(groupDiv);
-    }
-  }
-}
-
 // === REPORT DOWNLOAD ENGINE ===
 function downloadFilteredReport() {
   const highOnly = document.getElementById("filterHighOnly").checked;
